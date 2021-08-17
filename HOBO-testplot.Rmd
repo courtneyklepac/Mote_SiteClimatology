@@ -6,10 +6,10 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
-##This is an R script that manipulates insitu HOBO temp data for descriptive statistics, ANoVA, correlations, and plots##
-```{r}
+## This is an R script that manipulates insitu HOBO temp data for descriptive statistics, ANoVA, correlations, and plots
+```{r, echo=FALSE}
 #libraries
 library(FSA)
 library(dplyr)
@@ -22,14 +22,12 @@ library(psych)
 library(PerformanceAnalytics)
 library(cowplot)
 library(ggplot2)
+library(RColorBrewer)
 ```
-##Import data and set factors and levels##
+## Import data and set factors and levels
 ```{r}
-setwd("~/Documents/MOTE/NFH")
-getwd()
-
 #read in hobotemp file
-temp<-read.csv("NFHtemps.csv",header=T)
+temp<-read.csv("~/Dropbox/My Mac (BIOL68D8)/Documents/MOTE/NFH/Mote_SiteClimatology/NFHtemps.csv",header=T)
 #temp<-read.delim(pipe("pbpaste"))
 head(temp)
 # to convert the DateTime column to and R DateTime format see ?strptime() for more explanation
@@ -43,7 +41,7 @@ temp<-unite(temp, 'date', c('month','year'),remove=F)
 temp<-unite(temp, 'd', c('day','month','year'),remove=F)
 head(temp)
 ```
-##daily descriptive stats##
+## Daily descriptive stats
 ```{r}
 # use the day to calculate daily stats (range, min, max, mean)
 tempdaily<-data.frame("dayRange"=tapply(temp$Temp, temp$d, function(x) range(x)[2]-range(x)[1]),"dayMin"=tapply(temp$Temp, temp$d, min),"dayMax"=tapply(temp$Temp, temp$d, max), "dayMean"=tapply(temp$Temp, temp$d, mean))
@@ -54,14 +52,15 @@ head(tempdaily)
 # print out summary stats for daily measurements
 write.table(tempdaily,"NFHdailytempsummary.txt",sep = "\t")
 ```
-##Boxplot of daily stats
+## Boxplot of daily stats
 ```{r}
 par(mfrow=c(1,3))
 boxplot(tempdaily$dayRange, main = "Daily Range °C",ylab = "°C",notch=T, col="red",cex.lab=1.5,cex.axis=1.5)
 boxplot(tempdaily$dayMean, main = "Daily Mean °C", ylab = "°C",notch=T, col="gold",cex.lab=1.5,cex.axis=1.75)
 boxplot(tempdaily$dayMax, main = "Daily Max °C", ylab = "°C",notch=T, col="blue",cex.lab=1.5,cex.axis=1.8)
 ```
-##plot of entire temperature trace
+
+## Plot of entire temperature trace
 ```{r}
 #use the tickpos to set the axis labels you want to plot (note these need to match your first date-time file)
 tickpos<-seq(as.POSIXct("2005-06-04"),as.POSIXct("2021-07-30"),by="1 year")
@@ -72,7 +71,8 @@ legend("bottomright",c("NFH"),lty=1,lwd=2.5,col=c("blue"),bty="n")
 #to add your specific axis format to the x-axis
 axis.POSIXct(side=1, at=tickpos, format="%Y-%b")
 ```
-####DHW calculations from full dataset####
+
+## DHW calculations from full dataset
 ```{r}
 #subsetting df to create climatology avoiding bleaching years
 nbtemp<-subset(temp, year !='2005' & year !='2014')
@@ -80,20 +80,18 @@ nbtemp<-subset(temp, year !='2005' & year !='2014')
 #daily calcs from nb years to find MMM
 daily<-data.frame("DayRange"=tapply(nbtemp$Temp, nbtemp$d, function(x) range(x)[2]-range(x)[1]),"DayMin"=tapply(nbtemp$Temp, nbtemp$d, min),"DayMax"=tapply(nbtemp$Temp, nbtemp$d, max), "DayMean"=tapply(nbtemp$Temp, nbtemp$d, mean))
 daily$Date<-strptime(row.names(daily),format="%d_%m_%Y")
-str(daily)
 daily<-daily[order(daily$Date),]
 daily$month<-format(daily$Date, "%B-%Y")
 monthlymean<-data.frame("MonthlyMeans"=tapply(daily$DayMean,daily$month, mean))
 monthlymean$month<-row.names(monthlymean)
 monthlymean$year<-format(strptime(paste0("01-",monthlymean$month),format="%d-%B-%Y"),"%Y")
-str(monthlymean)
 monthlymean$mo<-format(strptime(paste0("01-",monthlymean$month),format="%d-%B-%Y"),"%B")
 Summarize(MonthlyMeans~mo, data=monthlymean, digits=3)
-#MMM = 31.173 August nb
+#MMM = 31.173 August non bleaching years
 ```
 
-#Climatology = maximum of the monthly mean SST climatology, mean temperature of the climatologically warmest month at the location
-#Hotspot = difference between a nighttime SST value and the corresponding climatology value
+#### Climatology = maximum of the monthly mean SST climatology, mean temperature of the climatologically warmest month at the location
+#### Hotspot = difference between a nighttime SST value and the corresponding climatology value
 ```{r}
 # df to calculate Hotspots and DHW DHD
 tempdaily$month<-format(tempdaily$date, "%B-%Y")
@@ -103,10 +101,10 @@ monthlymean$year<-format(strptime(paste0("01-",monthlymean$month),format="%d-%B-
 head(monthlymean)
 monthlymean$mo<-format(strptime(paste0("01-",monthlymean$month),format="%d-%B-%Y"),"%B")
 Summarize(MonthlyMeans~mo, data=monthlymean, digits=3)
-#MMM = 30.955 August .....weird, lower than when bleaching years kept
+#MMM = 30.955 August ....lower than when bleaching years kept
 ```
 
-#calculate hotspots and DHW
+## Calculate hotspots and DHW
 ```{r}
 #if/else wont work with NA remove
 tempdaily<-na.omit(tempdaily)
@@ -127,12 +125,12 @@ tempdaily$DHD<-c(rep(0,83),rollapply(tempdaily$hotspot,84,sum))
 headTail(tempdaily)
 tempdaily$year<-format(strptime(paste0("01-",tempdaily$month),format="%d-%B-%Y"),"%Y")
 ```
-#monthly stats
+## Monthly stats
 ```{r}
 monthly<-data.frame("MonthlyMin"=tapply(tempdaily$dayMin,tempdaily$month, min),"MonthlyMax"=tapply(tempdaily$dayMax,tempdaily$month, max),"MonthlyRange"=tapply(tempdaily$dayRange, tempdaily$month, max), "MonthlyMean"=tapply(tempdaily$dayMean,tempdaily$month, mean), "MonthlyDHW"=tapply(tempdaily$DHW ,tempdaily$month, max),"MonthlyDHD"=tapply(tempdaily$DHD,tempdaily$month, max))
 write.table(monthly,file="2005-2017_NHF_monthlyclimatology.txt",sep="\t")
 ```
-#plot climatology (SST and DHW) 
+## Plot climatology (SST and DHW) 
 ```{r}
 par(mar=c(5,5,3,5))
 plot(tempdaily$date,tempdaily$dayMean, type="l", lwd= 2, ylab="", xlab="Date", xaxt='n',ylim=c(18,34), col="blue")
@@ -148,7 +146,8 @@ mtext("Mean in-situ Temperature (°C)",cex=1.5,side=2,line=3)
 tickpos<-seq(as.POSIXct("2005-06-04"),as.POSIXct("2021-07-30"),by="1 year")
 axis.POSIXct(side=1, at=tickpos, format="%Y-%b")
 ```
-##calculate DR90 and days over threshold##
+
+## Calculate DR90 and days over threshold
 ```{r}
 #calculate DR90%, the 90th quartile for daily temp ranges over rolling 10day
 head(tempdaily)
@@ -166,8 +165,8 @@ monthly$month<-format(strptime(paste0("01-",monthly$date),format="%d-%B-%Y"),"%B
 monthly$month <- factor(monthly$month, levels = month.name)
 monthly$year<-as.factor(monthly$year)
 ```
-##plotting monthly summary of mean, max, dtr, and days over BT ##
-```{r}
+## Plotting monthly summary of mean, max, dtr, and days over BT 
+```{r, fig.width=8,fig.height=10}
 #remove 2016 bc incomplete
 monthly2<-subset(monthly, year !='2016')
 
